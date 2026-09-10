@@ -6,13 +6,35 @@ import '../../bloc/cart/cart_event.dart';
 import '../../bloc/cart/cart_state.dart';
 import '../../bloc/product/product_bloc.dart';
 import '../../bloc/product/product_state.dart';
-import '../../core/constants/app_constants.dart';
 import '../../data/models/product_model.dart';
+import '../../widgets/cart_item_tile.dart';
+import '../../widgets/cart_summary.dart';
 
+/// Cart Screen displaying:
+/// - List of cart items ([CartItemTile]) with images, titles, unit prices,
+///   quantities ([-] qty [+]), and subtotals.
+/// - Sticky bottom [CartSummary] with unique items, total units, and dynamically
+///   calculated grand total.
+/// - Empty cart view with "Your cart is empty", "Add some products to continue shopping.",
+///   and a "Continue Shopping" button returning to the product listing.
+///
+/// Uses existing [CartBloc] as single source of truth without local setState.
 class CartScreen extends StatelessWidget {
+  final VoidCallback? onContinueShopping;
   final VoidCallback? onBrowseProducts;
 
-  const CartScreen({this.onBrowseProducts, super.key});
+  const CartScreen({this.onContinueShopping, this.onBrowseProducts, super.key});
+
+  VoidCallback? get _continueShoppingAction =>
+      onContinueShopping ?? onBrowseProducts;
+
+  void _handleContinueShopping(BuildContext context) {
+    if (_continueShoppingAction != null) {
+      _continueShoppingAction!();
+    } else if (Navigator.canPop(context)) {
+      Navigator.pop(context);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -22,6 +44,7 @@ class CartScreen extends StatelessWidget {
       appBar: AppBar(title: const Text('My Cart'), centerTitle: true),
       body: BlocBuilder<CartBloc, CartState>(
         builder: (context, cartState) {
+          // Empty cart state
           if (cartState.quantities.isEmpty) {
             return Center(
               child: Padding(
@@ -30,20 +53,22 @@ class CartScreen extends StatelessWidget {
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
                     Icon(
-                      Icons.shopping_cart_outlined,
+                      Icons.remove_shopping_cart_outlined,
                       size: 80,
                       color: theme.colorScheme.outline,
                     ),
                     const SizedBox(height: 16),
                     Text(
                       'Your cart is empty',
+                      key: const ValueKey('empty_cart_title'),
                       style: theme.textTheme.titleLarge?.copyWith(
                         fontWeight: FontWeight.bold,
                       ),
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Looks like you haven\'t added any items yet.',
+                      'Add some products to continue shopping.',
+                      key: const ValueKey('empty_cart_subtitle'),
                       style: theme.textTheme.bodyMedium?.copyWith(
                         color: Colors.grey[600],
                       ),
@@ -51,9 +76,10 @@ class CartScreen extends StatelessWidget {
                     ),
                     const SizedBox(height: 24),
                     FilledButton.icon(
-                      onPressed: onBrowseProducts,
-                      icon: const Icon(Icons.storefront_outlined),
-                      label: const Text('Browse Products'),
+                      key: const ValueKey('continue_shopping_button'),
+                      onPressed: () => _handleContinueShopping(context),
+                      icon: const Icon(Icons.shopping_bag_outlined),
+                      label: const Text('Continue Shopping'),
                     ),
                   ],
                 ),
@@ -61,17 +87,19 @@ class CartScreen extends StatelessWidget {
             );
           }
 
+          // Cart with items: retrieve product details from ProductBloc
           return BlocBuilder<ProductBloc, ProductState>(
             builder: (context, productState) {
               final List<ProductModel> products = productState is ProductSuccess
                   ? productState.products
-                  : [];
+                  : const [];
 
               final Map<int, ProductModel> productMap = {
                 for (final p in products) p.id: p,
               };
 
-              // Compute total price dynamically
+              // Dynamically calculate Grand Total: sum(price * quantity)
+              // Never persisted to Hive.
               double grandTotal = 0.0;
               for (final entry in cartState.quantities.entries) {
                 final product = productMap[entry.key];
@@ -84,7 +112,7 @@ class CartScreen extends StatelessWidget {
 
               return Column(
                 children: [
-                  // Cart Items List
+                  // Scrollable Cart Items List
                   Expanded(
                     child: ListView.separated(
                       padding: const EdgeInsets.all(16),
@@ -97,7 +125,7 @@ class CartScreen extends StatelessWidget {
                         final product = productMap[productId];
 
                         if (product == null) {
-                          // Product not loaded yet or fallback
+                          // Fallback placeholder if product is still loading or not in memory
                           return Card(
                             elevation: 0,
                             shape: RoundedRectangleBorder(
@@ -122,202 +150,41 @@ class CartScreen extends StatelessWidget {
                           );
                         }
 
-                        final lineTotal = product.price * quantity;
-
-                        return Card(
-                          key: ValueKey('cart_item_$productId'),
-                          elevation: 0,
-                          shape: RoundedRectangleBorder(
-                            borderRadius: BorderRadius.circular(12),
-                            side: BorderSide(
-                              color: theme.colorScheme.outlineVariant,
-                            ),
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.all(12),
-                            child: Row(
-                              crossAxisAlignment: CrossAxisAlignment.center,
-                              children: [
-                                // Thumbnail
-                                Container(
-                                  width: 64,
-                                  height: 64,
-                                  padding: const EdgeInsets.all(4),
-                                  decoration: BoxDecoration(
-                                    color: Colors.white,
-                                    borderRadius: BorderRadius.circular(8),
-                                  ),
-                                  child: Image.network(
-                                    product.image,
-                                    fit: BoxFit.contain,
-                                    errorBuilder:
-                                        (context, error, stackTrace) =>
-                                            const Icon(
-                                              Icons.broken_image_outlined,
-                                              color: Colors.grey,
-                                            ),
-                                  ),
-                                ),
-                                const SizedBox(width: 12),
-                                // Details
-                                Expanded(
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        product.title,
-                                        maxLines: 2,
-                                        overflow: TextOverflow.ellipsis,
-                                        style: theme.textTheme.titleSmall
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.w600,
-                                            ),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        '${AppConstants.currencySymbol}${product.price.toStringAsFixed(2)} each',
-                                        style: theme.textTheme.bodySmall
-                                            ?.copyWith(color: Colors.grey[700]),
-                                      ),
-                                      const SizedBox(height: 4),
-                                      Text(
-                                        'Total: ${AppConstants.currencySymbol}${lineTotal.toStringAsFixed(2)}',
-                                        style: theme.textTheme.bodyMedium
-                                            ?.copyWith(
-                                              fontWeight: FontWeight.bold,
-                                              color: theme.colorScheme.primary,
-                                            ),
-                                      ),
-                                    ],
-                                  ),
-                                ),
-                                // Quantity Controls
-                                Row(
-                                  mainAxisSize: MainAxisSize.min,
-                                  children: [
-                                    IconButton(
-                                      iconSize: 20,
-                                      visualDensity: VisualDensity.compact,
-                                      icon: const Icon(
-                                        Icons.remove_circle_outline,
-                                      ),
-                                      onPressed: () {
-                                        context.read<CartBloc>().add(
-                                          UpdateQuantity(
-                                            productId: productId,
-                                            quantity: quantity - 1,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                    Text(
-                                      '$quantity',
-                                      style: theme.textTheme.titleMedium
-                                          ?.copyWith(
-                                            fontWeight: FontWeight.bold,
-                                          ),
-                                    ),
-                                    IconButton(
-                                      iconSize: 20,
-                                      visualDensity: VisualDensity.compact,
-                                      icon: const Icon(
-                                        Icons.add_circle_outline,
-                                      ),
-                                      onPressed: () {
-                                        context.read<CartBloc>().add(
-                                          UpdateQuantity(
-                                            productId: productId,
-                                            quantity: quantity + 1,
-                                          ),
-                                        );
-                                      },
-                                    ),
-                                  ],
-                                ),
-                              ],
-                            ),
-                          ),
+                        return CartItemTile(
+                          product: product,
+                          quantity: quantity,
+                          onIncrement: () {
+                            context.read<CartBloc>().add(
+                              UpdateQuantity(
+                                productId: product.id,
+                                quantity: quantity + 1,
+                              ),
+                            );
+                          },
+                          onDecrement: () {
+                            // If quantity is 1, quantity - 1 is 0 which removes from CartBloc & Hive
+                            context.read<CartBloc>().add(
+                              UpdateQuantity(
+                                productId: product.id,
+                                quantity: quantity - 1,
+                              ),
+                            );
+                          },
+                          onRemove: () {
+                            context.read<CartBloc>().add(
+                              RemoveFromCart(product.id),
+                            );
+                          },
                         );
                       },
                     ),
                   ),
 
-                  // Order Summary Footer
-                  Surface(
-                    elevation: 4,
-                    color: theme.colorScheme.surfaceContainer,
-                    child: SafeArea(
-                      top: false,
-                      child: Padding(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 20,
-                          vertical: 16,
-                        ),
-                        child: Column(
-                          mainAxisSize: MainAxisSize.min,
-                          children: [
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                Text(
-                                  'Items: ${cartState.totalQuantity} (${cartState.uniqueItems} unique)',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    color: Colors.grey[700],
-                                  ),
-                                ),
-                                Text(
-                                  'Grand Total',
-                                  style: theme.textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.bold,
-                                  ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 6),
-                            Row(
-                              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                              children: [
-                                const Text(
-                                  'Estimated Delivery: FREE',
-                                  style: TextStyle(
-                                    color: Colors.green,
-                                    fontWeight: FontWeight.w600,
-                                    fontSize: 12,
-                                  ),
-                                ),
-                                Text(
-                                  '${AppConstants.currencySymbol}${grandTotal.toStringAsFixed(2)}',
-                                  style: theme.textTheme.headlineSmall
-                                      ?.copyWith(
-                                        color: theme.colorScheme.primary,
-                                        fontWeight: FontWeight.bold,
-                                      ),
-                                ),
-                              ],
-                            ),
-                            const SizedBox(height: 12),
-                            SizedBox(
-                              width: double.infinity,
-                              child: FilledButton.icon(
-                                onPressed: () {
-                                  ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(
-                                      content: Text(
-                                        'Order for ${AppConstants.currencySymbol}${grandTotal.toStringAsFixed(2)} placed successfully!',
-                                      ),
-                                      behavior: SnackBarBehavior.floating,
-                                    ),
-                                  );
-                                },
-                                icon: const Icon(Icons.check_circle_outline),
-                                label: const Text('Proceed to Checkout'),
-                              ),
-                            ),
-                          ],
-                        ),
-                      ),
-                    ),
+                  // Fixed / Sticky Bottom Cart Summary
+                  CartSummary(
+                    uniqueItems: cartState.uniqueItems,
+                    totalUnits: cartState.totalQuantity,
+                    grandTotal: grandTotal,
                   ),
                 ],
               );
@@ -325,29 +192,6 @@ class CartScreen extends StatelessWidget {
           );
         },
       ),
-    );
-  }
-}
-
-/// Helper wrapper container for footer styling
-class Surface extends StatelessWidget {
-  final Widget child;
-  final Color? color;
-  final double elevation;
-
-  const Surface({
-    required this.child,
-    this.color,
-    this.elevation = 0,
-    super.key,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Material(
-      color: color ?? Theme.of(context).colorScheme.surface,
-      elevation: elevation,
-      child: child,
     );
   }
 }

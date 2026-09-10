@@ -29,7 +29,10 @@ class _MainScreenState extends State<MainScreen> {
         index: _currentIndex,
         children: [
           const ProductListScreen(),
-          CartScreen(onBrowseProducts: () => _onDestinationSelected(0)),
+          CartScreen(
+            onContinueShopping: () => _onDestinationSelected(0),
+            onBrowseProducts: () => _onDestinationSelected(0),
+          ),
         ],
       ),
       bottomNavigationBar: BlocBuilder<CartBloc, CartState>(

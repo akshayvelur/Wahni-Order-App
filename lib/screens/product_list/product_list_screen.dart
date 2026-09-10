@@ -3,6 +3,7 @@ import 'package:flutter_bloc/flutter_bloc.dart';
 
 import '../../bloc/cart/cart_bloc.dart';
 import '../../bloc/cart/cart_event.dart';
+import '../../bloc/cart/cart_state.dart';
 import '../../bloc/product/product_bloc.dart';
 import '../../bloc/product/product_event.dart';
 import '../../bloc/product/product_state.dart';
@@ -101,6 +102,14 @@ class ProductListScreen extends StatelessWidget {
               );
             }
 
+            // Watch CartBloc state to keep Product Listing synchronized with Cart
+            CartState? cartState;
+            try {
+              cartState = context.watch<CartBloc>().state;
+            } catch (_) {
+              cartState = null;
+            }
+
             return LayoutBuilder(
               builder: (context, constraints) {
                 final crossAxisCount = _getCrossAxisCount(constraints.maxWidth);
@@ -120,11 +129,17 @@ class ProductListScreen extends StatelessWidget {
                     itemCount: state.products.length,
                     itemBuilder: (context, index) {
                       final product = state.products[index];
+                      final inCartQuantity =
+                          cartState?.getQuantity(product.id) ?? 0;
+
                       return ProductCard(
                         key: ValueKey('product_${product.id}'),
                         product: product,
+                        cartQuantity: inCartQuantity,
                         onAddToCart: () {
-                          context.read<CartBloc>().add(AddToCart(product.id));
+                          try {
+                            context.read<CartBloc>().add(AddToCart(product.id));
+                          } catch (_) {}
                         },
                       );
                     },
