@@ -1,16 +1,25 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:wahniorderapp/bloc/cart/cart_bloc.dart';
+import 'package:wahniorderapp/bloc/cart/cart_event.dart';
+import 'package:wahniorderapp/bloc/cart/cart_state.dart';
 import 'package:wahniorderapp/bloc/product/product_bloc.dart';
 import 'package:wahniorderapp/bloc/product/product_event.dart';
 import 'package:wahniorderapp/bloc/product/product_state.dart';
 import 'package:wahniorderapp/data/models/product_model.dart';
+import 'package:wahniorderapp/screens/cart/cart_screen.dart';
+import 'package:wahniorderapp/screens/main_screen.dart';
 import 'package:wahniorderapp/screens/product_list/product_list_screen.dart';
 import 'package:wahniorderapp/widgets/product_card.dart';
 
 class FakeProductBloc extends Bloc<ProductEvent, ProductState>
     implements ProductBloc {
   FakeProductBloc(super.initialState);
+}
+
+class FakeCartBloc extends Bloc<CartEvent, CartState> implements CartBloc {
+  FakeCartBloc([super.initialState = const CartInitial()]);
 }
 
 void main() {
@@ -63,12 +72,18 @@ void main() {
     testWidgets('renders products in responsive GridView on ProductSuccess', (
       tester,
     ) async {
-      final fakeBloc = FakeProductBloc(const ProductSuccess([testProduct]));
+      final fakeProductBloc = FakeProductBloc(
+        const ProductSuccess([testProduct]),
+      );
+      final fakeCartBloc = FakeCartBloc();
 
       await tester.pumpWidget(
         MaterialApp(
-          home: BlocProvider<ProductBloc>.value(
-            value: fakeBloc,
+          home: MultiBlocProvider(
+            providers: [
+              BlocProvider<ProductBloc>.value(value: fakeProductBloc),
+              BlocProvider<CartBloc>.value(value: fakeCartBloc),
+            ],
             child: const ProductListScreen(),
           ),
         ),
@@ -79,7 +94,8 @@ void main() {
       expect(find.text('₹109.95'), findsOneWidget);
       expect(find.byType(ProductCard), findsOneWidget);
 
-      await fakeBloc.close();
+      await fakeProductBloc.close();
+      await fakeCartBloc.close();
     });
 
     testWidgets('renders error state and retry button on ProductFailure', (
@@ -129,5 +145,115 @@ void main() {
         await fakeBloc.close();
       },
     );
+  });
+
+  group('MainScreen Bottom Navigation', () {
+    testWidgets('renders NavigationBar with Products and Cart tabs', (
+      tester,
+    ) async {
+      final fakeProductBloc = FakeProductBloc(const ProductInitial());
+      final fakeCartBloc = FakeCartBloc();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MultiBlocProvider(
+            providers: [
+              BlocProvider<ProductBloc>.value(value: fakeProductBloc),
+              BlocProvider<CartBloc>.value(value: fakeCartBloc),
+            ],
+            child: const MainScreen(),
+          ),
+        ),
+      );
+
+      expect(find.byType(NavigationBar), findsOneWidget);
+      expect(find.text('Products'), findsOneWidget);
+      expect(find.text('Cart'), findsOneWidget);
+
+      await fakeProductBloc.close();
+      await fakeCartBloc.close();
+    });
+
+    testWidgets('shows badge on Cart tab when cart has items', (tester) async {
+      final fakeProductBloc = FakeProductBloc(const ProductInitial());
+      final fakeCartBloc = FakeCartBloc(const CartLoaded({1: 5, 2: 3}));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MultiBlocProvider(
+            providers: [
+              BlocProvider<ProductBloc>.value(value: fakeProductBloc),
+              BlocProvider<CartBloc>.value(value: fakeCartBloc),
+            ],
+            child: const MainScreen(),
+          ),
+        ),
+      );
+
+      // totalQuantity is 5 + 3 = 8
+      expect(find.text('8'), findsOneWidget);
+
+      await fakeProductBloc.close();
+      await fakeCartBloc.close();
+    });
+
+    testWidgets('switches to Cart tab on tap', (tester) async {
+      final fakeProductBloc = FakeProductBloc(const ProductSuccess([]));
+      final fakeCartBloc = FakeCartBloc();
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MultiBlocProvider(
+            providers: [
+              BlocProvider<ProductBloc>.value(value: fakeProductBloc),
+              BlocProvider<CartBloc>.value(value: fakeCartBloc),
+            ],
+            child: const MainScreen(),
+          ),
+        ),
+      );
+
+      await tester.tap(find.text('Cart'));
+      await tester.pump();
+      await tester.pump(const Duration(milliseconds: 300));
+
+      expect(find.text('My Cart'), findsOneWidget);
+      expect(find.text('Your cart is empty'), findsOneWidget);
+
+      await fakeProductBloc.close();
+      await fakeCartBloc.close();
+    });
+  });
+
+  group('CartScreen Widget', () {
+    testWidgets('renders cart items, line totals, and grand total', (
+      tester,
+    ) async {
+      final fakeProductBloc = FakeProductBloc(
+        const ProductSuccess([testProduct]),
+      );
+      final fakeCartBloc = FakeCartBloc(const CartLoaded({1: 2}));
+
+      await tester.pumpWidget(
+        MaterialApp(
+          home: MultiBlocProvider(
+            providers: [
+              BlocProvider<ProductBloc>.value(value: fakeProductBloc),
+              BlocProvider<CartBloc>.value(value: fakeCartBloc),
+            ],
+            child: const CartScreen(),
+          ),
+        ),
+      );
+
+      expect(find.text('My Cart'), findsOneWidget);
+      expect(find.text('Fjallraven Backpack'), findsOneWidget);
+      expect(find.text('2'), findsOneWidget);
+      expect(find.text('₹219.90'), findsWidgets);
+      expect(find.text('Proceed to Checkout'), findsOneWidget);
+
+      await fakeProductBloc.close();
+      await fakeCartBloc.close();
+    });
   });
 }

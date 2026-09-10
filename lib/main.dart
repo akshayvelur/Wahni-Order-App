@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import 'bloc/cart/cart_bloc.dart';
+import 'bloc/cart/cart_event.dart';
 import 'bloc/product/product_bloc.dart';
 import 'bloc/product/product_event.dart';
 import 'core/app_theme.dart';
 import 'core/constants/app_constants.dart';
 import 'data/datasources/local_database.dart';
-import 'screens/product_list/product_list_screen.dart';
+import 'screens/main_screen.dart';
 
 void main() async {
   WidgetsFlutterBinding.ensureInitialized();
@@ -19,13 +21,18 @@ class WahniOrderApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return BlocProvider(
-      create: (context) => ProductBloc()..add(const LoadProducts()),
+    return MultiBlocProvider(
+      providers: [
+        BlocProvider(
+          create: (context) => ProductBloc()..add(const LoadProducts()),
+        ),
+        BlocProvider(create: (context) => CartBloc()..add(const LoadCart())),
+      ],
       child: MaterialApp(
         title: AppConstants.appTitle,
         debugShowCheckedModeBanner: false,
         theme: AppTheme.lightTheme,
-        home: const ProductListScreen(),
+        home: const MainScreen(),
       ),
     );
   }

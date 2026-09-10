@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_bloc/flutter_bloc.dart';
 
+import '../../bloc/cart/cart_bloc.dart';
+import '../../bloc/cart/cart_event.dart';
 import '../../bloc/product/product_bloc.dart';
 import '../../bloc/product/product_event.dart';
 import '../../bloc/product/product_state.dart';
@@ -121,6 +123,9 @@ class ProductListScreen extends StatelessWidget {
                       return ProductCard(
                         key: ValueKey('product_${product.id}'),
                         product: product,
+                        onAddToCart: () {
+                          context.read<CartBloc>().add(AddToCart(product.id));
+                        },
                       );
                     },
                   ),
