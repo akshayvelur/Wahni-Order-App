@@ -37,7 +37,7 @@ class _MainScreenState extends State<MainScreen> {
       ),
       bottomNavigationBar: BlocBuilder<CartBloc, CartState>(
         builder: (context, cartState) {
-          final totalQty = cartState.totalQuantity;
+          final uniqueItems = cartState.uniqueItems;
 
           return NavigationBar(
             selectedIndex: _currentIndex,
@@ -50,17 +50,21 @@ class _MainScreenState extends State<MainScreen> {
               ),
               NavigationDestination(
                 icon: Badge(
-                  isLabelVisible: totalQty > 0,
+                  key: const ValueKey('bottom_nav_cart_badge'),
+                  isLabelVisible: uniqueItems > 0,
                   label: Text(
-                    '$totalQty',
+                    '$uniqueItems',
+                    key: const ValueKey('bottom_nav_cart_badge_count'),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   child: const Icon(Icons.shopping_cart_outlined),
                 ),
                 selectedIcon: Badge(
-                  isLabelVisible: totalQty > 0,
+                  key: const ValueKey('bottom_nav_cart_selected_badge'),
+                  isLabelVisible: uniqueItems > 0,
                   label: Text(
-                    '$totalQty',
+                    '$uniqueItems',
+                    key: const ValueKey('bottom_nav_cart_selected_badge_count'),
                     style: const TextStyle(fontWeight: FontWeight.bold),
                   ),
                   child: const Icon(Icons.shopping_cart),

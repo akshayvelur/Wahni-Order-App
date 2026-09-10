@@ -190,8 +190,25 @@ void main() {
         ),
       );
 
-      // totalQuantity is 5 + 3 = 8
-      expect(find.text('8'), findsOneWidget);
+      // uniqueItems is 2 (both AppBar and bottom navigation Cart badge display 2)
+      expect(
+        find.byKey(const ValueKey('bottom_nav_cart_badge_count')),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('bottom_nav_cart_badge')),
+          matching: find.text('2'),
+        ),
+        findsOneWidget,
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const ValueKey('appbar_cart_badge')),
+          matching: find.text('2'),
+        ),
+        findsOneWidget,
+      );
 
       await fakeProductBloc.close();
       await fakeCartBloc.close();
