@@ -28,7 +28,7 @@ class _MainScreenState extends State<MainScreen> {
       body: IndexedStack(
         index: _currentIndex,
         children: [
-          const ProductListScreen(),
+          ProductListScreen(onOpenCart: () => _onDestinationSelected(1)),
           CartScreen(
             onContinueShopping: () => _onDestinationSelected(0),
             onBrowseProducts: () => _onDestinationSelected(0),

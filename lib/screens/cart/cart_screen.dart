@@ -41,45 +41,79 @@ class CartScreen extends StatelessWidget {
     final theme = Theme.of(context);
 
     return Scaffold(
-      appBar: AppBar(title: const Text('My Cart'), centerTitle: true),
+      appBar: AppBar(
+        title: const Text(
+          'My Cart',
+          style: TextStyle(
+            fontWeight: FontWeight.w700,
+            fontSize: 19,
+            letterSpacing: -0.3,
+          ),
+        ),
+        centerTitle: true,
+      ),
       body: BlocBuilder<CartBloc, CartState>(
         builder: (context, cartState) {
           // Empty cart state
           if (cartState.quantities.isEmpty) {
             return Center(
               child: Padding(
-                padding: const EdgeInsets.all(24.0),
+                padding: const EdgeInsets.symmetric(horizontal: 32.0),
                 child: Column(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
-                    Icon(
-                      Icons.remove_shopping_cart_outlined,
-                      size: 80,
-                      color: theme.colorScheme.outline,
+                    Container(
+                      width: 96,
+                      height: 96,
+                      decoration: BoxDecoration(
+                        color: const Color(0xFFEEF2FF),
+                        shape: BoxShape.circle,
+                        border: Border.all(
+                          color: const Color(0xFFE0E7FF),
+                          width: 2,
+                        ),
+                      ),
+                      child: Icon(
+                        Icons.remove_shopping_cart_outlined,
+                        size: 44,
+                        color: theme.colorScheme.primary,
+                      ),
                     ),
-                    const SizedBox(height: 16),
+                    const SizedBox(height: 24),
                     Text(
                       'Your cart is empty',
                       key: const ValueKey('empty_cart_title'),
                       style: theme.textTheme.titleLarge?.copyWith(
-                        fontWeight: FontWeight.bold,
+                        fontWeight: FontWeight.w700,
+                        letterSpacing: -0.2,
                       ),
+                      textAlign: TextAlign.center,
                     ),
                     const SizedBox(height: 8),
                     Text(
                       'Add some products to continue shopping.',
                       key: const ValueKey('empty_cart_subtitle'),
                       style: theme.textTheme.bodyMedium?.copyWith(
-                        color: Colors.grey[600],
+                        color: const Color(0xFF64748B),
+                        height: 1.4,
                       ),
                       textAlign: TextAlign.center,
                     ),
-                    const SizedBox(height: 24),
-                    FilledButton.icon(
-                      key: const ValueKey('continue_shopping_button'),
-                      onPressed: () => _handleContinueShopping(context),
-                      icon: const Icon(Icons.shopping_bag_outlined),
-                      label: const Text('Continue Shopping'),
+                    const SizedBox(height: 28),
+                    SizedBox(
+                      height: 44,
+                      child: FilledButton.icon(
+                        key: const ValueKey('continue_shopping_button'),
+                        style: FilledButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(horizontal: 24),
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                        ),
+                        onPressed: () => _handleContinueShopping(context),
+                        icon: const Icon(Icons.storefront_outlined, size: 18),
+                        label: const Text('Continue Shopping'),
+                      ),
                     ),
                   ],
                 ),
@@ -129,11 +163,28 @@ class CartScreen extends StatelessWidget {
                           return Card(
                             elevation: 0,
                             shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                              side: BorderSide(color: Colors.grey.shade300),
+                              borderRadius: BorderRadius.circular(16),
+                              side: const BorderSide(color: Color(0xFFE2E8F0)),
                             ),
                             child: ListTile(
-                              title: Text('Product #$productId'),
+                              leading: Container(
+                                width: 48,
+                                height: 48,
+                                decoration: BoxDecoration(
+                                  color: const Color(0xFFF1F5F9),
+                                  borderRadius: BorderRadius.circular(10),
+                                ),
+                                child: const Icon(
+                                  Icons.inventory_2_outlined,
+                                  color: Color(0xFF94A3B8),
+                                ),
+                              ),
+                              title: Text(
+                                'Product #$productId',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w600,
+                                ),
+                              ),
                               subtitle: Text('Quantity: $quantity'),
                               trailing: IconButton(
                                 icon: const Icon(

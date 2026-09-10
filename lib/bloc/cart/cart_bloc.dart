@@ -5,6 +5,8 @@ import 'cart_event.dart';
 import 'cart_state.dart';
 
 class CartBloc extends Bloc<CartEvent, CartState> {
+  static const int maxQuantityPerProduct = 9999;
+
   final LocalDatabase _localDatabase;
   final Map<int, int> _quantities = {};
 
@@ -23,7 +25,10 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     _quantities.clear();
     for (final entry in savedQuantities.entries) {
       if (entry.value > 0) {
-        _quantities[entry.key] = entry.value;
+        final safeQty = entry.value > maxQuantityPerProduct
+            ? maxQuantityPerProduct
+            : entry.value;
+        _quantities[entry.key] = safeQty;
       }
     }
     emit(CartLoaded(Map<int, int>.from(_quantities)));
@@ -31,12 +36,16 @@ class CartBloc extends Bloc<CartEvent, CartState> {
 
   /// Handles adding a product to cart.
   /// If not in cart, quantity becomes 1.
-  /// If already in cart, increments by 1 without resetting.
+  /// If already in cart, increments by 1 (clamped to maxQuantityPerProduct).
   Future<void> _onAddToCart(AddToCart event, Emitter<CartState> emit) async {
     final currentQty = _quantities[event.productId] ?? 0;
-    final newQty = currentQty > 0 ? currentQty + 1 : 1;
+    final newQty = currentQty > 0
+        ? (currentQty < maxQuantityPerProduct
+              ? currentQty + 1
+              : maxQuantityPerProduct)
+        : 1;
 
-    // 1. Update state
+    // 1. Update state synchronously
     _quantities[event.productId] = newQty;
 
     // 2. Persist to Hive
@@ -47,21 +56,25 @@ class CartBloc extends Bloc<CartEvent, CartState> {
   }
 
   /// Handles explicit quantity updates:
-  /// Positive integer -> update quantity and persist.
+  /// Positive integer -> update quantity and persist (clamped to max).
   /// Zero or negative -> remove product from in-memory state and Hive.
   Future<void> _onUpdateQuantity(
     UpdateQuantity event,
     Emitter<CartState> emit,
   ) async {
     if (event.quantity > 0) {
-      // 1. Update state
-      _quantities[event.productId] = event.quantity;
+      final safeQty = event.quantity > maxQuantityPerProduct
+          ? maxQuantityPerProduct
+          : event.quantity;
+
+      // 1. Update state synchronously
+      _quantities[event.productId] = safeQty;
 
       // 2. Persist to Hive
-      await _localDatabase.saveCartQuantity(event.productId, event.quantity);
+      await _localDatabase.saveCartQuantity(event.productId, safeQty);
     } else {
       // Zero or negative: remove product and never persist negative values
-      // 1. Update state
+      // 1. Update state synchronously
       _quantities.remove(event.productId);
 
       // 2. Persist to Hive
@@ -78,7 +91,7 @@ class CartBloc extends Bloc<CartEvent, CartState> {
     RemoveFromCart event,
     Emitter<CartState> emit,
   ) async {
-    // 1. Update state
+    // 1. Update state synchronously
     _quantities.remove(event.productId);
 
     // 2. Persist to Hive
